@@ -4,5 +4,5 @@ git init
 git add .
 git commit -m "feat: Tesla-style Tic-Tac-Toe with React + TypeScript + Vite"
 git branch -M main
-git remote add origin https://github.com/jordiginjoler-coder/tesla-tic-tac-toe.git
+git remote add origin https://github.com/jordiginjoler-coder/tic-tac-toe.git
 git push -u origin main
