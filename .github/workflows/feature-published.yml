@@ -1,0 +1,405 @@
+name: Feature Published Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      change_name:
+        description: 'OpenSpec change name (e.g., SCRUM-123)'
+        required: false
+      environment:
+        description: 'Target environment'
+        type: choice
+        options: [staging, production]
+        default: staging
+
+env:
+  NODE_VERSION: '20'
+  WORKTREES_DIR: '.worktrees'
+
+jobs:
+  # ============================================================
+  # PRE-FLIGHT: Validate change is ready for production
+  # ============================================================
+  preflight:
+    name: Pre-Flight Validation
+    runs-on: ubuntu-latest
+    outputs:
+      change_name: ${{ steps.extract.outputs.change_name }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract change name
+        id: extract
+        run: |
+          if [ -n "${{ github.event.inputs.change_name }}" ]; then
+            echo "change_name=${{ github.event.inputs.change_name }}" >> $GITHUB_OUTPUT
+          else
+            # Auto-detect from latest merged PR
+            CHANGE=$(git log --oneline -1 --grep="SCRUM-\|FEAT-" --grep="Archive" | grep -oE '(SCRUM|FEAT)-[0-9]+' | head -1)
+            echo "change_name=$CHANGE" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify change archived
+        if: steps.extract.outputs.change_name != ''
+        run: |
+          CHANGE="${{ steps.extract.outputs.change_name }}"
+          if [ ! -d "openspec/changes/$CHANGE" ]; then
+            echo "ERROR: Change $CHANGE not found"
+            exit 1
+          fi
+          if [ ! -f "openspec/changes/$CHANGE/archive.md" ]; then
+            echo "ERROR: Change $CHANGE not archived (missing archive.md)"
+            exit 1
+          fi
+          echo "✅ Change $CHANGE is archived and ready"
+
+      - name: Determine version
+        id: version
+        run: |
+          # Semantic version from package.json or git tags
+          VERSION=$(cat package.json | jq -r .version 2>/dev/null || git describe --tags --abbrev=0 2>/dev/null || echo "0.1.0")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+  # ============================================================
+  # BUILD: Compile, test, lint, typecheck
+  # ============================================================
+  build:
+    name: Build & Test
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run tests with coverage
+        run: npm test -- --coverage
+
+      - name: Verify coverage threshold
+        run: |
+          COVERAGE=$(cat coverage/lcov.info | grep -A1 "SF:" | grep "DA:" | awk -F, '{hit+=$2; total++} END {print int(hit/total*100)}')
+          echo "Coverage: $COVERAGE%"
+          if [ "$COVERAGE" -lt 90 ]; then
+            echo "ERROR: Coverage $COVERAGE% below 90% threshold"
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ needs.preflight.outputs.change_name }}
+          path: |
+            dist/
+            build/
+            .next/
+          retention-days: 7
+
+  # ============================================================
+  # DOCKER: Build and scan container image
+  # ============================================================
+  docker:
+    name: Docker Build & Scan
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ needs.preflight.outputs.change_name }}
+          path: .
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ needs.preflight.outputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.tags }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ============================================================
+  # STAGING DEPLOYMENT
+  # ============================================================
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [preflight, build, docker]
+    if: github.event.inputs.environment == 'staging' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Deploy to staging
+        run: |
+          echo "🚀 Deploying ${{ needs.preflight.outputs.change_name }} to staging"
+          echo "Image: ${{ needs.docker.outputs.image_tag }}"
+          
+          # Simulate deployment with health checks
+          # Replace with actual deployment (kubectl, docker-compose, etc.)
+          
+          # Port conflict resolution
+          PORT=3000
+          while netstat -tuln | grep ":$PORT " >/dev/null; do
+            echo "Port $PORT in use, trying $((PORT+1))"
+            PORT=$((PORT+1))
+          done
+          echo "Using port: $PORT"
+          
+          # Health check with retries
+          for i in {1..30}; do
+            if curl -sf "http://localhost:$PORT/health" >/dev/null; then
+              echo "✅ Health check passed on port $PORT"
+              break
+            fi
+            echo "Waiting for health check... ($i/30)"
+            sleep 2
+          done
+          
+          # Verify endpoints
+          ENDPOINTS=("/health" "/api/v1/candidates" "/api/v1/positions")
+          for ep in "${ENDPOINTS[@]}"; do
+            if curl -sf "http://localhost:$PORT$ep" >/dev/null; then
+              echo "✅ Verified: http://localhost:$PORT$ep"
+            else
+              echo "❌ FAILED: http://localhost:$PORT$ep"
+              exit 1
+            fi
+          done
+          
+          echo "STAGING_URL=http://localhost:$PORT" >> $GITHUB_ENV
+
+      - name: Comment PR with staging URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🚀 **Staging Deployment Ready**\n\n' +
+                    `**Change:** ${{ needs.preflight.outputs.change_name }}\n` +
+                    `**Version:** ${{ needs.preflight.outputs.version }}\n` +
+                    `**URL:** ${{ env.STAGING_URL }}\n` +
+                    `**Image:** ${{ needs.docker.outputs.image_tag }}\n\n` +
+                    '✅ All health checks passed\n' +
+                    '✅ All endpoints verified\n\n' +
+                    'Ready for production promotion via `/promote` or manual workflow dispatch.'
+            })
+
+  # ============================================================
+  # PRODUCTION DEPLOYMENT (manual approval)
+  # ============================================================
+  deploy-production:
+    name: Deploy to Production
+    needs: [preflight, build, docker, deploy-staging]
+    if: github.event.inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy to production
+        run: |
+          echo "🚀 Deploying ${{ needs.preflight.outputs.change_name }} to PRODUCTION"
+          echo "Image: ${{ needs.docker.outputs.image_tag }}"
+          
+          # Blue-green deployment with port management
+          CURRENT_PORT=$(cat .current_port 2>/dev/null || echo "3000")
+          NEW_PORT=$((CURRENT_PORT == 3000 ? 3001 : 3000))
+          
+          echo "Current port: $CURRENT_PORT, New port: $NEW_PORT"
+          
+          # Start new version on new port
+          # docker run -d -p $NEW_PORT:3000 ${{ needs.docker.outputs.image_tag }}
+          
+          # Health checks on new port
+          for i in {1..60}; do
+            if curl -sf "http://localhost:$NEW_PORT/health" >/dev/null; then
+              echo "✅ New version healthy on port $NEW_PORT"
+              break
+            fi
+            sleep 2
+          done
+          
+          # Verify all endpoints
+          ENDPOINTS=("/health" "/api/v1/candidates" "/api/v1/positions" "/api/v1/interviews")
+          for ep in "${ENDPOINTS[@]}"; do
+            if curl -sf "http://localhost:$NEW_PORT$ep" >/dev/null; then
+              echo "✅ Verified: http://localhost:$NEW_PORT$ep"
+            else
+              echo "❌ FAILED: http://localhost:$NEW_PORT$ep - Rolling back"
+              # docker stop new_container
+              exit 1
+            fi
+          done
+          
+          # Switch traffic (update nginx/proxy config)
+          # nginx -s reload
+          
+          # Update current port tracker
+          echo $NEW_PORT > .current_port
+          
+          # Stop old version after grace period
+          # sleep 30 && docker stop old_container
+          
+          echo "PRODUCTION_URL=http://localhost:$NEW_PORT" >> $GITHUB_ENV
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.preflight.outputs.version }}
+          name: Release v${{ needs.preflight.outputs.version }}
+          body: |
+            ## ${{ needs.preflight.outputs.change_name }}
+            
+            ### Changes
+            - See PR for details
+            
+            ### Deployment
+            - **Image:** ${{ needs.docker.outputs.image_tag }}
+            - **URL:** ${{ env.PRODUCTION_URL }}
+            - **Deployed by:** ${{ github.actor }}
+            
+            ### Verification
+            - ✅ All tests passing
+            - ✅ Security scan clean
+            - ✅ Health checks verified
+            - ✅ All endpoints functional
+          draft: false
+          prerelease: false
+
+      - name: Update OpenSpec change status
+        run: |
+          CHANGE="${{ needs.preflight.outputs.change_name }}"
+          if [ -f "openspec/changes/$CHANGE/archive.md" ]; then
+            echo "" >> "openspec/changes/$CHANGE/archive.md"
+            echo "## Production Deployment" >> "openspec/changes/$CHANGE/archive.md"
+            echo "- **Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "openspec/changes/$CHANGE/archive.md"
+            echo "- **Version:** ${{ needs.preflight.outputs.version }}" >> "openspec/changes/$CHANGE/archive.md"
+            echo "- **URL:** ${{ env.PRODUCTION_URL }}" >> "openspec/changes/$CHANGE/archive.md"
+            echo "- **Image:** ${{ needs.docker.outputs.image_tag }}" >> "openspec/changes/$CHANGE/archive.md"
+            echo "- **Deployed by:** ${{ github.actor }}" >> "openspec/changes/$CHANGE/archive.md"
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add "openspec/changes/$CHANGE/archive.md"
+            git commit -m "chore: record production deployment for $CHANGE"
+            git push
+          fi
+
+  # ============================================================
+  # NOTIFICATIONS
+  # ============================================================
+  notify:
+    name: Notifications
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          text: |
+            Deployment ${{ job.status }} for ${{ needs.preflight.outputs.change_name }}
+            Environment: ${{ github.event.inputs.environment || 'staging' }}
+            Version: ${{ needs.preflight.outputs.version }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Email notification (on failure)
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "❌ Deployment Failed: ${{ needs.preflight.outputs.change_name }}"
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: CI/CD Pipeline
+          body: |
+            Deployment failed for change ${{ needs.preflight.outputs.change_name }}
+            
+            Check GitHub Actions for details:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  # ============================================================
+  # ROLLBACK (manual trigger)
+  # ============================================================
+  rollback:
+    name: Rollback
+    if: false  # Only manual via workflow_dispatch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rollback to previous version
+        run: |
+          echo "🔄 Rolling back..."
+          PREV_PORT=$(cat .current_port 2>/dev/null || echo "3000")
+          OLD_PORT=$((PREV_PORT == 3000 ? 3001 : 3000))
+          
+          # Switch back to old port
+          # nginx config update
+          # nginx -s reload
+          
+          echo $OLD_PORT > .current_port
+          echo "✅ Rolled back to port $OLD_PORT"

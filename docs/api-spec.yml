@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: LTI API
+  version: 1.0.0
+  description: LTI Backend API Specification
+servers:
+  - url: http://localhost:3000
+    description: Development server
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        timestamp:
+          type: string
+          format: date-time
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+            code:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+security:
+  - bearerAuth: []
