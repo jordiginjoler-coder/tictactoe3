@@ -5,7 +5,6 @@ import { GameBoard } from './components/GameBoard';
 import { GameStatus } from './components/GameStatus';
 import { ScoreBoard } from './components/ScoreBoard';
 import { GameControls } from './components/GameControls';
-import type { GameState, GameStatus } from './types/game';
 import './styles/global.css';
 
 function App() {

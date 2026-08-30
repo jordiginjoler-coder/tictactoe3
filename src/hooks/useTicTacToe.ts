@@ -1,6 +1,6 @@
 /** Custom Hook for Tic-Tac-Toe Game Logic */
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { GameState, Score, Player, GameStatus } from '../types/game';
 import {
   createInitialState,
@@ -54,7 +54,7 @@ export function useTicTacToe(): UseTicTacToeReturn {
 
   // Reset round (keep score)
   const resetRound = useCallback(() => {
-    setGameState(prev => resetGame(score));
+    setGameState(() => resetGame(score));
   }, [score]);
 
   // Reset everything

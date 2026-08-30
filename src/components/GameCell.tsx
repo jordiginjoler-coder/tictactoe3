@@ -1,7 +1,7 @@
 /** Game Cell Component - Individual Cell with Tesla Styling */
 
 import { memo, type ReactElement } from 'react';
-import '../../styles/GameBoard.css';
+import '../styles/GameBoard.css';
 
 interface GameCellProps {
   value: 'X' | 'O' | null;

@@ -1,7 +1,7 @@
 /** Game Logic - Pure functions for Tic-Tac-Toe */
 
-import type { Board, CellValue, GameState, Player, WinningLine, Score, GameStatus } from '../types/game';
-import { WINNING_COMBINATIONS, INITIAL_BOARD } from '../types/game';
+import type { Board, GameState, Player, WinningLine, Score, GameStatus } from '../types/game';
+import { WINNING_COMBINATIONS } from '../types/game';
 
 /**
  * Creates a new empty board
@@ -39,7 +39,7 @@ export function checkWinner(board: Board): { player: Player; line: WinningLine }
     const [a, b, c] = combination;
     const cellA = board[a[0]][a[1]];
     const cellB = board[b[0]][b[1]];
-    const cellC = board[c[0]][c[2]];
+    const cellC = board[c[0]][c[1]];
 
     if (cellA && cellA === cellB && cellB === cellC) {
       return { player: cellA, line: combination };
@@ -138,7 +138,7 @@ export function processMove(state: GameState, row: number, col: number): GameSta
 /**
  * Resets game state but keeps score
  */
-export function resetGame(score: Score): GameState {
+export function resetGame(_score: Score): GameState {
   return {
     ...createInitialState(),
   };

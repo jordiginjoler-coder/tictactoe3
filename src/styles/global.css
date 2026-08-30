@@ -73,7 +73,7 @@ h1, h2, h3, h4, h5, h6 {
 h1 { font-size: var(--text-h1); }
 h2 { font-size: var(--text-h2); }
 h3 { font-size: var(--text-h3); }
-h4 { font_size: var(--text-h4); }
+h4 { font-size: var(--text-h4); }
 
 p {
   color: var(--color-text-secondary);

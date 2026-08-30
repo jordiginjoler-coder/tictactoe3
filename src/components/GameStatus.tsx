@@ -1,10 +1,10 @@
 /** Game Status Component - Shows current player or game result */
 
 import { memo, type ReactElement, useEffect, useState } from 'react';
-import type { Player, GameStatus } from '../types/game';
+import type { Player, GameStatus as GameStatusType } from '../types/game';
 
 interface GameStatusProps {
-  status: GameStatus;
+  status: GameStatusType;
   currentPlayer: Player;
   onNewRound: () => void;
   onNewGame: () => void;
@@ -53,14 +53,14 @@ export const GameStatus = memo(function GameStatus({
   }
 
   // Game Over Modal
-  const titles: Record<GameStatus, { text: string; className: string }> = {
+  const titles: Record<GameStatusType, { text: string; className: string }> = {
     x_wins: { text: '¡EQUIPAS GANA!', className: 'x-wins' },
     o_wins: { text: '¡CÍRCULOS GANAN!', className: 'o-wins' },
     draw: { text: 'EMPATE', className: 'draw' },
     playing: { text: '', className: '' },
   };
 
-  const messages: Record<GameStatus, string> = {
+  const messages: Record<GameStatusType, string> = {
     x_wins: 'Las equis han dominado el tablero',
     o_wins: 'Los círculos han completado la línea',
     draw: 'Ambos jugadores han jugado perfectamente',
