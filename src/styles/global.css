@@ -1,4 +1,4 @@
-/* Global Styles - Tesla Theme */
+/* Global Styles - Futuristic Theme */
 
 @import './tokens.css';
 
@@ -28,7 +28,7 @@ body {
   overflow-x: hidden;
 }
 
-/* Tesla Background Pattern */
+/* Futuristic Background Pattern */
 body::before {
   content: '';
   position: fixed;
@@ -88,7 +88,7 @@ a {
 }
 
 a:hover {
-  color: var(--color-tesla-blue);
+  color: var(--color-accent-blue-bright);
 }
 
 /* Buttons - Base */
@@ -194,7 +194,7 @@ a:hover {
 .input:focus {
   outline: none;
   border-color: var(--color-border-focus);
-  box-shadow: 0 0 0 3px var(--color-tesla-blue-glow);
+  box-shadow: 0 0 0 3px var(--color-accent-blue-glow);
 }
 
 .input::placeholder {
@@ -285,7 +285,7 @@ a:hover {
 }
 
 .animate-slide-up {
-  animation: slideUp var(--motion-slow) var(--easing-tesla) forwards;
+  animation: slideUp var(--motion-slow) var(--easing-standard-curve) forwards;
 }
 
 .animate-scale-in {

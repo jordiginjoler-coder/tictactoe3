@@ -12,6 +12,7 @@ interface GameBoardProps {
   isGameOver: boolean;
   cellSize: number;
   gap: number;
+  disabled?: boolean;
 }
 
 export const GameBoard = memo(function GameBoard({
@@ -21,6 +22,7 @@ export const GameBoard = memo(function GameBoard({
   isGameOver,
   cellSize,
   gap,
+  disabled = false,
 }: GameBoardProps): ReactElement {
   // Calculate winning cell positions for highlighting
   const winningCells = winningLine 
@@ -28,6 +30,7 @@ export const GameBoard = memo(function GameBoard({
     : new Set<string>();
 
   const linePath = getWinningLinePath(winningLine, cellSize, gap);
+  const isDisabled = isGameOver || disabled;
 
   return (
     <div className="game-board-wrapper">
@@ -47,7 +50,7 @@ export const GameBoard = memo(function GameBoard({
               key={`${rowIndex}-${colIndex}`}
               value={cell}
               isWinning={winningCells.has(`${rowIndex}-${colIndex}`)}
-              isDisabled={isGameOver}
+              isDisabled={isDisabled}
               onClick={() => onCellClick(rowIndex, colIndex)}
               aria-label={cell 
                 ? `Celda ${rowIndex + 1}, ${colIndex + 1}, ocupada por ${cell === 'X' ? 'equis' : 'círculo'}`

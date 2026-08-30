@@ -1,13 +1,15 @@
 /** Game Status Component - Shows current player or game result */
 
 import { memo, type ReactElement, useEffect, useState } from 'react';
-import type { Player, GameStatus as GameStatusType } from '../types/game';
+import type { Player, GameStatus as GameStatusType, GameMode } from '../types/game';
 
 interface GameStatusProps {
   status: GameStatusType;
   currentPlayer: Player;
   onNewRound: () => void;
   onNewGame: () => void;
+  isAIThinking?: boolean;
+  gameMode?: GameMode;
 }
 
 export const GameStatus = memo(function GameStatus({
@@ -15,12 +17,13 @@ export const GameStatus = memo(function GameStatus({
   currentPlayer,
   onNewRound,
   onNewGame,
+  isAIThinking = false,
+  gameMode = 'pvp',
 }: GameStatusProps): ReactElement {
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (status !== 'playing') {
-      // Small delay for animation to complete
       const timer = setTimeout(() => setShowModal(true), 300);
       return () => clearTimeout(timer);
     } else {
@@ -30,6 +33,9 @@ export const GameStatus = memo(function GameStatus({
 
   // Current player indicator (during play)
   if (status === 'playing') {
+    const isHumanTurn = gameMode === 'pve' ? currentPlayer === 'X' : true;
+    const thinkingLabel = isAIThinking ? ' (pensando...)' : '';
+
     return (
       <div className="current-player" role="status" aria-live="polite">
         <div className="player-indicator">
@@ -46,7 +52,7 @@ export const GameStatus = memo(function GameStatus({
           </svg>
         </div>
         <span className={`player-turn-indicator active ${currentPlayer === 'O' ? 'o' : ''}`}>
-          JUGANDO
+          {isHumanTurn ? 'JUGANDO' : 'MÁQUINA'}{thinkingLabel}
         </span>
       </div>
     );

@@ -1,7 +1,7 @@
 {
-  "name": "tesla-tic-tac-toe",
+  "name": "tic-tac-toe",
   "version": "1.0.0",
-  "description": "Tesla-style Tic-Tac-Toe web application",
+  "description": "Tic-Tac-Toe web application with futuristic design",
   "type": "module",
   "scripts": {
     "dev": "vite",

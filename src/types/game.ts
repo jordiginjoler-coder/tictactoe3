@@ -5,6 +5,8 @@ export type CellValue = Player | null;
 export type Board = CellValue[][];
 export type WinningLine = [number, number][] | null;
 
+export type GameMode = 'pvp' | 'pve'; // Player vs Player | Player vs Engine
+
 export interface GameState {
   board: Board;
   currentPlayer: Player;

@@ -1,4 +1,4 @@
-/** Game Cell Component - Individual Cell with Tesla Styling */
+/** Game Cell Component - Individual Cell with Futuristic Styling */
 
 import { memo, type ReactElement } from 'react';
 import '../styles/GameBoard.css';

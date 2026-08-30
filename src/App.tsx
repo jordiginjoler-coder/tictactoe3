@@ -5,6 +5,7 @@ import { GameBoard } from './components/GameBoard';
 import { GameStatus } from './components/GameStatus';
 import { ScoreBoard } from './components/ScoreBoard';
 import { GameControls } from './components/GameControls';
+import { GameModeSelector } from './components/GameModeSelector';
 import './styles/global.css';
 
 function App() {
@@ -12,10 +13,13 @@ function App() {
     gameState,
     score,
     status,
+    gameMode,
     makeMove,
     resetRound,
     resetGame,
+    setGameMode,
     currentPlayerSymbol,
+    isAIThinking,
   } = useTicTacToe();
 
   const handleCellClick = (row: number, col: number) => {
@@ -30,6 +34,10 @@ function App() {
     resetGame();
   };
 
+  const handleModeChange = (mode: 'pvp' | 'pve') => {
+    setGameMode(mode);
+  };
+
   // Calculate responsive cell size
   const cellSize = Math.min(
     Math.floor((window.innerWidth - 48) / 3.5),
@@ -40,11 +48,17 @@ function App() {
   return (
     <main className="game-container" role="main">
       <header className="game-header">
-        <h1 className="game-title">TESLA TIC-TAC-TOE</h1>
+        <h1 className="game-title">TIC-TAC-TOE</h1>
         <p className="game-subtitle">
           Juega al 3 en raya con estilo futurista
         </p>
       </header>
+
+      <GameModeSelector
+        currentMode={gameMode}
+        onChange={handleModeChange}
+        disabled={!gameState.isGameOver && gameState.moveCount > 0}
+      />
 
       <ScoreBoard score={score} />
 
@@ -55,6 +69,7 @@ function App() {
         isGameOver={gameState.isGameOver}
         cellSize={cellSize}
         gap={gap}
+        disabled={isAIThinking}
       />
 
       <GameStatus
@@ -62,6 +77,8 @@ function App() {
         currentPlayer={currentPlayerSymbol}
         onNewRound={handleNewRound}
         onNewGame={handleNewGame}
+        isAIThinking={isAIThinking}
+        gameMode={gameMode}
       />
 
       <GameControls
@@ -72,7 +89,7 @@ function App() {
 
       {/* Footer */}
       <footer style={{ marginTop: 'var(--spacing-3xl)', color: 'var(--color-text-tertiary)', fontSize: 'var(--text-caption)' }}>
-        <p>Construido con React + TypeScript + Vite • Diseño inspirado en Tesla</p>
+        <p>Construido con React + TypeScript + Vite • Diseño futurista</p>
       </footer>
     </main>
   );

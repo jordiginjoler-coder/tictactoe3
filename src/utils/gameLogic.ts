@@ -184,3 +184,55 @@ export function isValidMove(state: GameState, row: number, col: number): boolean
     isCellEmpty(state.board, row, col)
   );
 }
+
+/**
+ * Gets all empty cells on the board
+ */
+export function getEmptyCells(board: Board): [number, number][] {
+  const empty: [number, number][] = [];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      if (board[r][c] === null) {
+        empty.push([r, c]);
+      }
+    }
+  }
+  return empty;
+}
+
+/**
+ * Minimax algorithm for AI move selection
+ * Returns the best move for the AI player
+ */
+export function getBestMove(board: Board, aiPlayer: Player): [number, number] | null {
+  const emptyCells = getEmptyCells(board);
+  if (emptyCells.length === 0) return null;
+
+  // Simple strategy: win > block > center > corner > random
+  const humanPlayer = aiPlayer === 'X' ? 'O' : 'X';
+
+  // 1. Check if AI can win
+  for (const [r, c] of emptyCells) {
+    const testBoard = makeMove(board, r, c, aiPlayer);
+    if (checkWinner(testBoard)) return [r, c];
+  }
+
+  // 2. Block human from winning
+  for (const [r, c] of emptyCells) {
+    const testBoard = makeMove(board, r, c, humanPlayer);
+    if (checkWinner(testBoard)) return [r, c];
+  }
+
+  // 3. Take center
+  if (isCellEmpty(board, 1, 1)) return [1, 1];
+
+  // 4. Take corners
+  const corners: [number, number][] = [[0, 0], [0, 2], [2, 0], [2, 2]];
+  const availableCorners = corners.filter(([r, c]) => isCellEmpty(board, r, c));
+  if (availableCorners.length > 0) {
+    return availableCorners[Math.floor(Math.random() * availableCorners.length)];
+  }
+
+  // 5. Take any remaining
+  return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+}
